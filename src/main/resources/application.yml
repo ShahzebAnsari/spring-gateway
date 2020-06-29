@@ -1,0 +1,100 @@
+server:
+  port: 8080
+
+spring:
+  cloud:
+    gateway:
+      httpclient:
+        ssl:
+          useInsecureTrustManager: true
+      filter:
+        secure-headers:
+          xss-protection-header: 3
+      default-filters:
+        - AddResponseHeader= default_filter_header_name, default_filter_header_value
+      routes:
+        - id: first-service
+          uri: http://localhost:8081/
+          predicates:
+            - Path= /first/{segment}
+            - Header= Content-Type, application/jso.
+            - After= 2020-05-19T06:25:20.789-07:00[America/Denver]
+            - Method= GET
+            - Cookie= myCookie, cookie_value
+            - Query= name, [a-z]+
+          filters:
+            - AddRequestHeader= request_header1, request_header_value
+            - AddRequestParameter= nam, Shahzeb
+            - AddResponseHeader= response_header1, response_header_value
+            - RemoveRequestHeader= request_header2
+            - RemoveResponseHeader= Content-Length
+            - RewriteResponseHeader= response_header2, password=[^&]+, password=***
+            - SaveSession
+            - SetRequestHeader= request_header4, Black
+            - SetResponseHeader= response_header3, 4321
+            - SetStatus= NOT_FOUND
+            - DedupeResponseHeader= Access-Control-Allow-Origin
+            - PreserveHostHeader
+            - CustomFilter
+            - name: RequestSize
+              args:
+                maxSize: 25
+            - name: Retry
+              args:
+                retries: 3
+                statuses: MULTIPLE_CHOICES, BAD_GATEWAY
+                methods: GET,POST
+                backoff:
+                  firstBackoff: 10ms
+                  maxBackoff: 50ms
+                  factor: 2
+                  basedOnPreviousValue: false
+        - id: second-service
+          uri: http://localhost:8082/
+          predicates:
+            - Path= /second/**
+          filters:
+            - PrefixPath= /prefix
+        - id: second-services-header
+          uri: http://localhost:8082/
+          predicates:
+            - Path= /listHeader
+          filters:
+            - RedirectTo= 302, http://localhost:8081/
+        - id: first-service-rewrite-path
+          uri: http://localhost:8081/
+          predicates:
+            - Path= /rewrite/**
+          filters:
+            - RewritePath= /rewrite(?<seg>/?[^/]*)/(?<set>/?[^/]*), $\{seg}
+        - id: second-service-set-path
+          uri: http://localhost:8082/
+          predicates:
+            - Path= /setpath/{segment}/{seg}
+          filters:
+            - SetPath= /{segment}
+        - id: second-service-strip-prefix
+          uri: http://localhost:8082/
+          predicates:
+            - Path= /strip/**
+          filters:
+            - StripPrefix= 3
+        - id: second-service-method-predicate
+          uri: http://localhost:8082/
+          predicates:
+            - Path= /methodCheck
+            - Method= POST,GET
+        - id: first-service-check
+          uri: http://localhost:8083/
+          predicates:
+            - Path= /firstService/checkCustom
+          filters:
+            - CustomFilter
+        - id: for-all
+          uri: https://localhost:8081/
+          predicates:
+            - Path= /**
+          filters:
+            - AddResponseHeader= header, value
+
+
